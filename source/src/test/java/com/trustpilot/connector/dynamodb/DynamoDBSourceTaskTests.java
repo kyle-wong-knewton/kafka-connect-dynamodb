@@ -23,6 +23,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.trustpilot.connector.dynamodb.DynamoDBSourceConnectorConfig.SRC_INIT_SYNC_MODE_CONFIG;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -491,6 +492,47 @@ public class DynamoDBSourceTaskTests {
 
         // Assert
         assertEquals(Instant.parse("2001-01-01T19:00:00.00Z"), task.getSourceInfo().lastInitSyncStart);
+    }
+
+    @Test
+    public void initSyncDisabledNoTableScansPerformed() throws InterruptedException {
+        // Arrange
+        HashMap<String, Object> offset = new HashMap<>();
+        offset.put("table_name", tableName);
+        offset.put("init_sync_state", "RUNNING");
+        offset.put("init_sync_start", Instant.parse("2001-01-01T00:00:00.00Z").toEpochMilli());
+
+        TableDescription tableDescription = new TableDescription();
+        tableDescription.setTableName(tableName);
+        tableDescription.setKeySchema(Collections.singleton(new KeySchemaElement("col1", "S")));
+
+        Map<String, AttributeValue> row = new HashMap<>();
+        row.put("col1", new AttributeValue("key1"));
+        row.put("col2", new AttributeValue("val1"));
+        row.put("col3", new AttributeValue().withN("1"));
+        List<Map<String, AttributeValue>> initSyncRecords = Collections.singletonList(row);
+
+        Map<String, AttributeValue> exclusiveStartKey = Collections.singletonMap("fake", new AttributeValue("key"));
+
+        SourceTaskBuilder builder = new SourceTaskBuilder()
+            .withOffset(offset)
+            .withClock(Clock.fixed(Instant.parse("2001-01-01T01:00:00.00Z"), ZoneId.of("UTC")))
+            .withTableDescription(tableDescription)
+            .withInitSyncRecords(initSyncRecords, exclusiveStartKey);
+        DynamoDBSourceTask task = builder.buildTask();
+
+        Map<String, String> configsInitSyncDisabled = new HashMap<>(configs);
+        configsInitSyncDisabled.put(SRC_INIT_SYNC_MODE_CONFIG, "false");
+        // Act
+        task.start(configsInitSyncDisabled);
+        List<SourceRecord> response = task.poll();
+
+        // Assert
+        assertEquals(Instant.parse("2001-01-01T00:00:00.00Z"), task.getSourceInfo().lastInitSyncStart);
+        assertEquals(0, task.getSourceInfo().initSyncCount);
+
+        assertEquals(0, response.size());
+        verifyZeroInteractions(builder.tableScanner);
     }
 
     @Test

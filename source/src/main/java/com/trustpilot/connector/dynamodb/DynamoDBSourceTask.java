@@ -89,6 +89,7 @@ public class DynamoDBSourceTask extends SourceTask {
     private SourceInfo sourceInfo;
     private TableDescription tableDesc;
     private int initSyncDelay;
+    private boolean initSyncModeEnabled;
 
     @SuppressWarnings("unused")
     //Used by Confluent platform to initialize connector
@@ -123,6 +124,7 @@ public class DynamoDBSourceTask extends SourceTask {
         tableDesc = client.describeTable(config.getTableName()).getTable();
 
         initSyncDelay = config.getInitSyncDelay();
+        initSyncModeEnabled = config.isInitSyncModeEnabled();
 
         LOGGER.debug("Getting offset for table: {}", tableDesc.getTableName());
         setStateFromOffset();
@@ -211,6 +213,13 @@ public class DynamoDBSourceTask extends SourceTask {
      * {@link SourceInfo}.
      */
     private LinkedList<SourceRecord> initSync() throws Exception {
+        if (!initSyncModeEnabled) {
+            LOGGER.info("INIT_SYNC mode is not enabled, ending INIT_SYNC mode");
+            sourceInfo.initSync = false;
+            sourceInfo.endInitSync();
+            return new LinkedList<>();
+        }
+
         if (sourceInfo.lastInitSyncStart.compareTo(Instant.now(clock).minus(Duration.ofHours(19))) <= 0) {
             LOGGER.error("Current INIT_SYNC took over 19 hours. Restarting INIT_SYNC! {}", sourceInfo);
             sourceInfo.startInitSync();

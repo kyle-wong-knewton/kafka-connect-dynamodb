@@ -10,14 +10,19 @@ import java.util.Map;
 
 public class DynamoDBSourceConnectorConfig extends AbstractConfig {
 	public static final String AWS_GROUP = "AWS";
-  	public static final String CONNECTOR_GROUP = "Connector";
+  public static final String CONNECTOR_GROUP = "Connector";
 
-  	public static final String SRC_INIT_SYNC_DELAY_CONFIG = "init.sync.delay.period";
+  public static final String SRC_INIT_SYNC_DELAY_CONFIG = "init.sync.delay.period";
 	public static final String SRC_INIT_SYNC_DELAY_DOC = "Define how long to delay INIT_SYNC start in seconds.";
 	public static final String SRC_INIT_SYNC_DELAY_DISPLAY = "INIT_SYNC delay";
 	public static final int SRC_INIT_SYNC_DELAY_DEFAULT = 60;
 
-  	public static final String AWS_REGION_CONFIG = "aws.region";
+  public static final String SRC_INIT_SYNC_MODE_CONFIG = "init.sync.mode.enabled";
+	public static final String SRC_INIT_SYNC_MODE_DOC = "Define whether INIT_SYNC mode is enabled. Enabled by default";
+	public static final String SRC_INIT_SYNC_MODE_DISPLAY = "INIT_SYNC enabled";
+	public static final boolean SRC_INIT_SYNC_MODE_DEFAULT = true;
+
+  public static final String AWS_REGION_CONFIG = "aws.region";
 	public static final String AWS_REGION_DOC = "Define AWS region.";
 	public static final String AWS_REGION_DISPLAY = "Region";
 	public static final String AWS_REGION_DEFAULT = "eu-west-1";
@@ -199,6 +204,15 @@ public class DynamoDBSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.Width.MEDIUM,
 						SRC_INIT_SYNC_DELAY_DISPLAY)
 
+				.define(SRC_INIT_SYNC_MODE_CONFIG,
+						ConfigDef.Type.BOOLEAN,
+						SRC_INIT_SYNC_MODE_DEFAULT,
+						ConfigDef.Importance.LOW,
+						SRC_INIT_SYNC_MODE_DOC,
+						CONNECTOR_GROUP, 2,
+						ConfigDef.Width.MEDIUM,
+						SRC_INIT_SYNC_MODE_DISPLAY)
+
 				.define(REDISCOVERY_PERIOD_CONFIG,
 						ConfigDef.Type.LONG,
 						REDISCOVERY_PERIOD_DEFAULT,
@@ -255,6 +269,10 @@ public class DynamoDBSourceConnectorConfig extends AbstractConfig {
 
 	public int getInitSyncDelay() {
 		return (int)get(SRC_INIT_SYNC_DELAY_CONFIG);
+	}
+
+	public boolean isInitSyncModeEnabled() {
+		return (boolean)get(SRC_INIT_SYNC_MODE_CONFIG);
 	}
 
 	public String getDynamoDBServiceEndpoint() {

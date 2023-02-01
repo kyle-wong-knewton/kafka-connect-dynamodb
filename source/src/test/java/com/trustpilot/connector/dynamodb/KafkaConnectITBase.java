@@ -39,13 +39,18 @@ import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
 public class KafkaConnectITBase {
-    protected static final String AMAZON_DYNAMO_IMAGE = "amazon/dynamodb-local:1.13.5";
-    protected static final String KAFKA_IMAGE = "confluentinc/cp-kafka:5.3.1";
-    protected static final String SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:5.3.1";
-    protected static final String CONNECT_IMAGE = "confluentinc/cp-kafka-connect:5.3.1";
-    protected static final String MOCK_SERVER_IMAGE = "jamesdbloom/mockserver:mockserver-5.11.0";
+    protected static final String AMAZON_DYNAMO_IMAGE = "amazon/dynamodb-local";
+    protected static final String AMAZON_DYNAMO_VERSION = "1.13.5";
+    protected static final String KAFKA_IMAGE = "confluentinc/cp-kafka";
+    protected static final String KAFKA_IMAGE_VERSION = "6.0.2";
+    protected static final String SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry";
+    protected static final String SCHEMA_REGISTRY_IMAGE_VERSION = "6.0.2";
+    protected static final String CONNECT_IMAGE = "confluentinc/cp-kafka-connect";
+    protected static final String CONNECT_IMAGE_VERSION = "6.0.2";
+    protected static final String MOCK_SERVER_IMAGE = "jamesdbloom/mockserver";
+    protected static final String MOCK_SERVER_IMAGE_VERSION = "mockserver-5.11.0";
 
-    protected static final String AWS_REGION_CONFIG = "eu-west-3";
+    protected static final String AWS_REGION_CONFIG = "us-east-1";
     protected static final String AWS_ACCESS_KEY_ID_CONFIG = "ABCD";
     protected static final String AWS_SECRET_KEY_CONFIG = "1234";
     protected static final String SRC_DYNAMODB_TABLE_INGESTION_TAG_KEY_CONFIG = "datalake-ingest";
@@ -62,27 +67,29 @@ public class KafkaConnectITBase {
     public static void dockerSetup() {
         network = Network.newNetwork();
 
-        dynamodb = new DynamoDBContainer(DockerImageName.parse(AMAZON_DYNAMO_IMAGE))
+        dynamodb = new DynamoDBContainer(DockerImageName.parse(AMAZON_DYNAMO_IMAGE).withTag(AMAZON_DYNAMO_VERSION))
                 .withNetwork(network);
 
-        kafka = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
+        kafka = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE).withTag(KAFKA_IMAGE_VERSION))
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:9092")
                 .withNetworkAliases("broker")
                 .withEmbeddedZookeeper()
                 .withNetwork(network);
 
-        schemaRegistry = new SchemaRegistryContainer(DockerImageName.parse(SCHEMA_REGISTRY_IMAGE))
+        schemaRegistry = new SchemaRegistryContainer(DockerImageName.parse(SCHEMA_REGISTRY_IMAGE)
+                                                                    .withTag(SCHEMA_REGISTRY_IMAGE_VERSION))
                 .withNetwork(network)
                 .withNetworkAliases("mock-server")
                 .withKafka(kafka)
                 .dependsOn(kafka);
 
-        mockServer = (MockServerContainerExt) new MockServerContainerExt(DockerImageName.parse(MOCK_SERVER_IMAGE))
+        mockServer = (MockServerContainerExt) new MockServerContainerExt(DockerImageName.parse(MOCK_SERVER_IMAGE)
+                                                                                        .withTag(MOCK_SERVER_IMAGE_VERSION))
                 .withNetwork(network)
                 .withEnv("MOCKSERVER_LIVENESS_HTTP_GET_PATH", "/health")
                 .waitingFor(Wait.forHttp("/health").forStatusCode(200));
 
-        connect = new ConnectContainer(DockerImageName.parse(CONNECT_IMAGE), kafka, schemaRegistry)
+        connect = new ConnectContainer(DockerImageName.parse(CONNECT_IMAGE).withTag(CONNECT_IMAGE_VERSION), kafka, schemaRegistry)
                 .withNetworkAliases("connect")
                 .withNetwork(network)
                 .withPlugins("../build/libs/")
@@ -116,6 +123,12 @@ public class KafkaConnectITBase {
     protected void registerConnector(String name, List<String> tablesWhitelist) {
         ConnectorConfig connector = createBaseConfig(name);
         connector.config.put("dynamodb.table.whitelist", String.join(",", tablesWhitelist));
+        postConnector(connector);
+    }
+
+    protected void registerConnector(String name, Map<String, String> config) {
+        ConnectorConfig connector = createBaseConfig(name);
+        connector.config.putAll(config);
         postConnector(connector);
     }
 
@@ -175,6 +188,16 @@ public class KafkaConnectITBase {
         AmazonDynamoDB client = getDynamoDBClient();
 
         return client.createTable(createTableRequest);
+    }
+
+    protected UpdateTableResult enableDynamoDbStreams(String tableName) {
+        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
+                .withTableName(tableName)
+                .withStreamSpecification(new StreamSpecification()
+                                                 .withStreamEnabled(true)
+                                                 .withStreamViewType(StreamViewType.NEW_IMAGE));
+        AmazonDynamoDB client = getDynamoDBClient();
+        return client.updateTable(updateTableRequest);
     }
 
     protected void putDynamoDBItems(String tableName, List<Item> itemStream) {

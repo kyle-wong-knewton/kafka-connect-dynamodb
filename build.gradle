@@ -46,15 +46,16 @@ allprojects {
 
     dependencies {
         def junitJupiterVersion = '5.6.2'
+        def testContainersVersion = '1.17.3'
         testImplementation "org.junit.jupiter:junit-jupiter:$junitJupiterVersion"
         testCompile "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion"
         testCompile "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion"
         implementation 'io.rest-assured:rest-assured:4.3.1'
-        testCompile "org.testcontainers:testcontainers:1.14.3"
-        testCompile "org.testcontainers:junit-jupiter:1.14.3"
-        testCompile "org.testcontainers:kafka:1.15.0-rc2"
-        testCompile "org.testcontainers:mockserver:1.15.0-rc2"
+        testCompile "org.testcontainers:testcontainers:$testContainersVersion"
+        testCompile "org.testcontainers:junit-jupiter:$testContainersVersion"
+        testCompile "org.testcontainers:kafka:$testContainersVersion"
+        testCompile "org.testcontainers:mockserver:$testContainersVersion"
         testCompile "org.mock-server:mockserver-client-java:5.11.1"
         testCompile "com.google.code.gson:gson:2.8.6"
 
